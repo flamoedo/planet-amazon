@@ -18,7 +18,7 @@ from six import string_types
 # Make sure you have all of these packages installed, e.g. via pip
 import numpy as np
 import pandas as pd
-import seaborn as sns
+#import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from skimage import io
@@ -34,8 +34,8 @@ from skimage.transform import rescale
 # PLANET_KAGGLE_LABEL_CSV = os.path.join(PLANET_KAGGLE_ROOT, 'train_v2.csv')
 # MODEL_SAVE_FILE_NAME = 'ver_3_forest-vgg.keras'
 
-PLANET_KAGGLE_ROOT = os.path.abspath("D:/Kaggle")
-PLANET_KAGGLE_JPEG_DIR = os.path.join(PLANET_KAGGLE_ROOT, 'downloads',  'train-tif/')
+PLANET_KAGGLE_ROOT = os.path.abspath("C:/Kaggle")
+PLANET_KAGGLE_JPEG_DIR = os.path.join(PLANET_KAGGLE_ROOT, 'planet-amazon-deforestation-master','train-tif-v2/')
 PLANET_KAGGLE_LABEL_CSV = os.path.join(PLANET_KAGGLE_ROOT, 'planet-amazon-deforestation-master', 'train_v2.csv')
 MODEL_SAVE_FILE_NAME = 'ver_3_forest-vgg.keras'
 
@@ -81,6 +81,8 @@ def write_to_file(filename, text):
 
 def load_labels(labels_dir):
     #Carrega labels e adiciona one hot features
+    
+    print(labels_dir)
 
     labels_df = pd.read_csv(labels_dir)
     
@@ -122,7 +124,7 @@ def subsample(df, n_sample):
 # ### loading multiple JPEG files, normalize and categorize labels
 
 
-def load_images(img_dir,label_dir, img_fim=100, img_type='jpg', img_ini=0, img_rescale=1.0, sample=0, debug = False):
+def load_images(img_dir,labels_df, img_fim=100, img_type='jpg', img_ini=0, img_rescale=1.0, sample=0, debug = False):
     #Carrega as imagens e os labels
 
     X = []
@@ -130,12 +132,6 @@ def load_images(img_dir,label_dir, img_fim=100, img_type='jpg', img_ini=0, img_r
     
     i = img_ini
     
-    #Carrega labels e lista de imagens e one hot encoded labels
-    global labels_df
-    
-    if labels_df == None:
-        labels_df = load_labels(label_dir)
-        
     columns = list(labels_df)
 
     # Sub-sample
@@ -193,10 +189,8 @@ def get_img_shape(rescale_img = 0.0):
 
 
 
-def load_data(img_dir,label_dir, img_ini=0, img_type='tif', batch_size=0, res_img=1.0, sample=0):
+def load_data(img_dir,labels_df, img_ini=0, img_type='tif', batch_size=0, res_img=1.0, sample=0):
     #Cria os batches de images para serem processados
-
-    labels_df = load_labels(label_dir)
     
     #Separar 10% do batch para teste
                 
@@ -204,7 +198,7 @@ def load_data(img_dir,label_dir, img_ini=0, img_type='tif', batch_size=0, res_im
     
     # print(img_ini, img_fim)
         
-    X_features, Y_features = load_images(img_dir,label_dir, img_fim, img_type, img_ini, img_rescale = res_img, sample=sample)
+    X_features, Y_features = load_images(img_dir,labels_df, img_fim, img_type, img_ini, img_rescale = res_img, sample=sample)
     
     if batch_size == 0:     
         train_size = len(Y_features)
@@ -321,37 +315,42 @@ def class_weights(Y):
 
 # ### Treinando em batches
 
-def batch_training(batch_size_load=100):    
-
-    batch=batch_size_load
+def batch_training(p_batch_size_load=100, p_epochs=50, p_batch_size_keras=50):    
 
     model = model_keras()
+    
+    #Carrega labels e lista de imagens e one hot encoded labels
+    
+    labels_df = load_labels(PLANET_KAGGLE_LABEL_CSV)
     
     #continuar a partir de 5000
     idx=0
     while idx < 40000:
     
         #Carrega as imagens
-        (X, Y), (X_test, Y_test) = load_data(PLANET_KAGGLE_JPEG_DIR,PLANET_KAGGLE_LABEL_CSV, 
-                                             img_ini=idx, batch_size = batch)
+        (X, Y), (X_test, Y_test) = load_data(PLANET_KAGGLE_JPEG_DIR,labels_df, 
+                                             img_ini=idx, batch_size = p_batch_size_load)
         #Cálculo de classes desbalanceadas
         weights = class_weights(Y)
             
         #Treina o modelo
         history = model.fit(X, Y, 
-                            epochs=50,
-                            batch_size=50, 
+                            epochs=p_epochs,
+                            batch_size=p_batch_size_keras, 
                             class_weight = weights,
                             validation_data=(X_test, Y_test))
         
         
-        idx+= batch
+        idx+= p_batch_size_load
           
         #Salva o modelo a cada iteração
         model.save(MODEL_SAVE_FILE_NAME) 
     
 
+#########################################################################################
+    
+#Executa o treinamento
+batch_training(p_batch_size_load=100, p_epochs=2, p_batch_size_keras=5)
 
-
-
+#########################################################################################
 
